@@ -1,11 +1,14 @@
+import os
 import math
 import random
+import argparse
 import multiprocessing
+
+import project_config as pcfg
 import SCA_tree_gen as sca
 import franka_import_tree_multi_env as fit
-import argparse
-import combine_dataset_files as combine
-import make_relative_rotational_dataset as mkori
+#import make_relative_rotational_dataset as mkori  # NOTE(daniel): path issues
+#import combine_dataset_files as combine  # NOTE(daniel): path issues
 
 ## Parameters for the SCA. Lists specify possible parameters, of which one is chosen at random for every tree
 TRUNK_HEIGHT_FACTORS = [1,2]
@@ -17,7 +20,7 @@ a = 10 # suggested values Trunk_Height and higher
 HEIGHT_STRECH_VALS = [0.5, 0.33] #factors to strech the crown shape of the tree to be non circular
 WIDTH_STRECH_VALS = [1, 1.5, 2, 3] #factors to strech the crown shape of the tree to be non circular
 ATT_PTS_NUM = [200, 400, 800, 1600] #number of attraction points
-PATH = "/mnt/hdd/jan-malte/10Nodes_new_test"
+PATH = os.path.join(pcfg.PATH, '10Nodes_new_test')
 
 yaml_paths = []
 urdf_paths = []
@@ -52,24 +55,71 @@ num_iter = args.num_iter
 
 tree = tree_start_idx
 while tree < tree_num:
-    trunk_height = STEP_WIDTH * 0.75 / SCALING #TRUNK_HEIGHT_FACTORS[random.randrange(0, len(TRUNK_HEIGHT_FACTORS))] / SCALING
+    trunk_height = STEP_WIDTH * 0.75 / SCALING
     d_termination = STEP_WIDTH/random.randrange(3, 6)
-    d_attraction_values = [math.ceil(trunk_height)+1, math.ceil(trunk_height) + 2, math.ceil(trunk_height) + 4, math.ceil(trunk_height) + 8, math.ceil(trunk_height) + 16, math.ceil(trunk_height) + 32, math.ceil(trunk_height) + 64]
+    d_attraction_values = [
+        math.ceil(trunk_height) +  1,
+        math.ceil(trunk_height) +  2,
+        math.ceil(trunk_height) +  4,
+        math.ceil(trunk_height) +  8,
+        math.ceil(trunk_height) + 16,
+        math.ceil(trunk_height) + 32,
+        math.ceil(trunk_height) + 64
+    ]
     d_attraction = d_attraction_values[random.randrange(0, len(d_attraction_values) - 1)]
     height_strech = HEIGHT_STRECH_VALS[random.randrange(0,len(HEIGHT_STRECH_VALS)-1)]
     width_strech = WIDTH_STRECH_VALS[random.randrange(0,len(WIDTH_STRECH_VALS)-1)]
     att_pts_max = ATT_PTS_NUM[random.randrange(0, len(ATT_PTS_NUM)-1)]
-    print("tree%s: \n\t d_termination: %s \n\t d_attraction: %s \n\t height_strech: %s \n\t width_strech: %s \n\t att_pts_max: %s"%(tree, d_termination, d_attraction, height_strech, width_strech, att_pts_max))
-    tg = sca.TreeGenerator(max_steps=10000, att_pts_max=att_pts_max, da=d_attraction, dt=d_termination, step_width=STEP_WIDTH, offset=[-0.5, -0.5, trunk_height], scaling=SCALING, max_tree_points=tree_pts, tip_radius=0.1, tree_id=tree, pipe_model_exponent=PIPE_MODEL_EXPONENT, z_strech=height_strech, y_strech=width_strech, x_strech=width_strech, step_width_scaling=0.65, env_num=env_num, gui_on=gui_on)
+
+    print(f"tree {tree}: \n\t d_termination: {d_termination:0.4f} \n\t "
+        f"d_attraction: {d_attraction} \n\t height_strech: {height_strech} \n\t "
+        f"width_strech: {width_strech} \n\t att_pts_max: {att_pts_max}")
+
+    # ???
+    tg = sca.TreeGenerator(
+        max_steps=10000,
+        att_pts_max=att_pts_max,
+        da=d_attraction,
+        dt=d_termination,
+        step_width=STEP_WIDTH,
+        offset=[-0.5, -0.5, trunk_height],
+        scaling=SCALING,
+        max_tree_points=tree_pts,
+        tip_radius=0.1,
+        tree_id=tree,
+        pipe_model_exponent=PIPE_MODEL_EXPONENT,
+        z_strech=height_strech,
+        y_strech=width_strech,
+        x_strech=width_strech,
+        step_width_scaling=0.65,
+        env_num=env_num,
+        gui_on=gui_on
+    )
     tg.generate_tree()
     tg.calculate_branch_thickness()
+
+    # ???
     name_dict, edge_def, urdf_path = tg.generate_urdf()
     yaml_path, stiffness_list, damping_list = tg.generate_yaml()
     edge_def2 = tg.calc_edge_tuples()
 
-    fit.import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, damping_list, tree_num=tree, tree_pts=tree_pts, path=path, num_iteration=num_iter)
+    # ???
+    fit.import_tree(
+        name_dict,
+        urdf_path,
+        yaml_path,
+        edge_def,
+        stiffness_list,
+        damping_list,
+        tree_num=tree,
+        tree_pts=tree_pts,
+        path=path,
+        num_iteration=num_iter
+    )
     tree+=1
 
-combine.combine(tree_start=tree_start_idx, tree_num=tree_num, env_num=env_num, get_path=path, put_path=per_tree_path, per_tree=True, tree_pts=tree_pts)
-if calc_ori:
-    mkori.make_orientation(tree_start=tree_start_idx, tree_num=tree_num, tree_pts=tree_pts, get_path=per_tree_path, put_path=ori_path)
+# NOTE(daniel): was only recently added, giving some path issues.
+# combine.combine(tree_start=tree_start_idx, tree_num=tree_num, env_num=env_num, get_path=path, put_path=per_tree_path, per_tree=True, tree_pts=tree_pts)
+
+#if calc_ori:
+#    mkori.make_orientation(tree_start=tree_start_idx, tree_num=tree_num, tree_pts=tree_pts, get_path=per_tree_path, put_path=ori_path)

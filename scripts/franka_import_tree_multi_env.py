@@ -1,11 +1,15 @@
+"""
+TODO(daniel) this was giving me import errors
+"""
 import argparse
 
 import numpy as np
-from numpy import save 
+from numpy import save
 #from autolab_core import YamlConfig, RigidTransform
 import yaml
 import os
 
+import project_config as pcfg
 from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka, GymBoxAsset
@@ -15,13 +19,12 @@ from isaacgym_utils.math_utils import RigidTransform_to_transform, np_to_vec3, v
 from isaacgym_utils.policy import GraspBlockPolicy, MoveBlockPolicy
 from isaacgym_utils.draw import draw_transforms, draw_contacts, draw_camera, draw_spheres
 
-import pdb
-import sys
-import datetime
+PATH = os.path.join(pcfg.PATH, '10Nodes_new_test')
 
-PATH = "/mnt/hdd/jan-malte/10Nodes_new_test/" #"/home/jan-malte/Dataset/8Nodes/" #"/home/jan-malte/Dataset/" #"/media/jan-malte/INTENSO/"
 
-def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, damping_list, tree_num, tree_pts, path=PATH, num_iteration=10000):
+def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list,
+        damping_list, tree_num, tree_pts, path=PATH, num_iteration=10000):
+    """TODO(daniel)"""
     global no_contact, force, loc_tree, random_index, contact_transform, not_saved
     with open(yaml_path, "r") as f:
         cfg = yaml.load(f, Loader=yaml.Loader)
@@ -42,10 +45,10 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
         tree_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, 0))
         scene.add_asset(tree_name, tree, tree_transform, collision_filter=1) # avoid self-collisions
 
-    scene.setup_all_envs(setup)   
+    scene.setup_all_envs(setup)
 
     def contact_draw(scene, env_idx, loc_tree ):
-        
+
         for env_idx in scene.env_idxs:
             contact_transform = (loc_tree)
             #draw_transforms_contact(scene, [env_idx], [contact_transform])
@@ -57,12 +60,12 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
             transforms = []
             for link_name in name_dict["links"]:
                 transforms.append(tree.get_ee_transform_MARK(env_idx, tree_name, link_name))
-            
+
 
             draw_transforms(scene, [env_idx], transforms)
         draw_contacts(scene, scene.env_idxs)
 
-    
+
     no_contact = [True] * scene._n_envs
     not_saved = [True] * scene._n_envs
     force = np_to_vec3([0, 0, 0])
@@ -84,7 +87,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
             vertex_pos[4,i] = quat[1]
             vertex_pos[5,i] = quat[2]
             vertex_pos[6,i] = quat[3]
-  
+
         return vertex_pos
 
     # TODO: ask mark what this function is supposed to do, and why it just assumes
@@ -93,7 +96,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
         #stiff_k = 600
         #damping = 400
         coeffecients[0,:] = np.array(stiffness_list)
-        coeffecients[1,:] = np.array(damping_list)  
+        coeffecients[1,:] = np.array(damping_list)
 
         return coeffecients
 
@@ -104,7 +107,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
         force_applied_[1,index] = force[1]
         force_applied_[2,index] = force[2]
 
-        return force_applied_ 
+        return force_applied_
 
 
     def save_data(env_idx, vertex_init_pos_list_arg, vertex_final_pos_list_arg, force_applied_list_arg):
@@ -126,7 +129,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
         save(path + '[%s]Y_vertex_final_pos_tree%s_env%s'%(tree_pts, tree_num, env_idx), vertex_final_pos_list_arg )
 
         #print(f"Vinit, Vfinal, Fapplied lengths: {vertex_init_pos_list}")
-        #sys.exit() 
+        #sys.exit()
 
         #print(f" ---- appending data {ten_sec_counter}th time ---- ")
         #print(f"Vinit, Vfinal, Fapplied lengths: {len(vertex_init_pos_list)},  {len(vertex_final_pos_list)},  {len(force_applied_list)}")
@@ -134,7 +137,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
         #print(f"vertex_final_pos {vertex_final_pos}")
         #print(f"force_applied {force_applied}")
 
-            
+
     tree_location_list = []
     legal_push_indices = []
     idx = 0
@@ -149,7 +152,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
 
     global contact_transform
     contact_transform = tree_location_list[0]
-    
+
     loc_tree = tree_location_list[2].p
     random_index = 1
 
@@ -176,7 +179,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
 
     def policy(scene, env_idx, t_step, t_sim): #TODO: Fix issue where this saves init and final vetor identically
         global rand_idxs, force_vecs, current_pos, last_timestamp, push_switch, done, push_num, last_pos, no_contact, force, loc_tree, random_index, contact_transform, force_vecs, rand_idxs, vertex_init_pos_list, vertex_final_pos_list, force_applied_list, vertex_init_pos, vertex_final_pos, force_applied, not_saved
-        # #get pose 
+        # #get pose
         # tree_tf3 = tree.get_link_transform(0, tree_name, name_dict["links"][2])
 
         # #create random force
@@ -206,9 +209,9 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
                 #print("env%s saves"%env_idx)
                 if env_idx in vertex_init_pos_dict.keys():
                     vertex_init_pos_dict[env_idx].append(vertex_init_pos[env_idx])
-                else:   
+                else:
                     vertex_init_pos_dict[env_idx] = [vertex_init_pos[env_idx]]
-                
+
                 if env_idx in vertex_final_pos_dict.keys():
                     vertex_final_pos_dict[env_idx].append(vertex_final_pos[env_idx])
                 else:
@@ -223,13 +226,13 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
                 #    if x in vertex_init_pos_dict.keys():
                 #        print(len(vertex_init_pos_dict[x]))
                 #print(cmpr.all())
-                
+
                 no_contact[env_idx] = True
                 force = np_to_vec3([0, 0, 0])
                  # # force = np_to_vec3([np.random.rand()*force_magnitude, np.random.rand()*force_magnitude, np.random.rand()*force_magnitude])
                 #loc_tree = tree_location_list[2].p
                 push_num += 1 #globally counted
-            
+
             ### APPLY ZERO-FORCE ###
             tree.apply_force(env_idx, tree_name, name_dict["links"][2], force, tree_location_list[2].p)
 
@@ -258,7 +261,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
                     fz = np.random.randint(-force_magnitude,force_magnitude)
                     if abs(fx) + abs(fy) + abs(fz) != 0:
                         break
-                
+
                 force = np_to_vec3([fx, fy, fz])
                 force_vecs[env_idx] = force
                 #force = np_to_vec3([-10,-10,0])
@@ -269,7 +272,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list, dampi
                 rand_idxs[env_idx] = random_index
 
                 force_applied[env_idx] = set_force([fx,fy,fz], rand_idxs[env_idx])
-                
+
                 #loc_tree = tree_location_list[rand_idxs[env_idx]].p
                 contact_transform = tree_location_list[rand_idxs[env_idx]]
                 contact_name = tree.link_names[rand_idxs[env_idx]]

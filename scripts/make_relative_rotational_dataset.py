@@ -1,9 +1,10 @@
 import numpy as np
+import project_config as pcfg
 from scipy.spatial.transform import Rotation
 import os
 
-GET_PATH = "/mnt/hdd/jan-malte/10Nodes_new_test_by_tree/"
-PUT_PATH = "/mnt/hdd/jan-malte/10Nodes_new_test_by_tree/"
+GET_PATH = os.path.join(pcfg.PATH, "10Nodes_new_test_by_tree")
+PUT_PATH = os.path.join(pcfg.PATH, "10Nodes_new_test_by_tree")
 TREE_NUM = 3
 TREE_PTS = 10
 TREE_START = 0
@@ -20,7 +21,7 @@ def calculate_orientational_data(X_edges, X_pos, Y_pos, X_force):
     Y_pos = Y_pos[:,:,:3]
     shape = np.shape(X_pos)
     init_quat_data = np.zeros((shape[0], shape[1], 4))
-    final_quat_data = np.zeros((shape[0], shape[1], 4)) 
+    final_quat_data = np.zeros((shape[0], shape[1], 4))
     for push_idx in range(0,shape[0]):
         init_inv_rot_dict = {} #dictionary to store inverse rotations => used to calculate relative rotation
         final_inv_rot_dict = {} #dictionary to store inverse rotations => used to calculate relative rotation
@@ -36,13 +37,13 @@ def calculate_orientational_data(X_edges, X_pos, Y_pos, X_force):
                 rot_final = rot_final * final_inv_rot_dict[parents_parent]
                 init_inv_rot = init_inv_rot_dict[parents_parent] * rot_init.inv()
                 final_inv_rot =  final_inv_rot_dict[parents_parent] * rot_final.inv()
-                
+
             quat_init = rot_init.as_quat()
             quat_final = rot_final.as_quat()
 
             init_quat_data[push_idx][parent] = quat_init
             final_quat_data[push_idx][parent] = quat_final
-            
+
             if parent not in init_inv_rot_dict.keys():
                 init_inv_rot_dict[parent] = init_inv_rot
                 final_inv_rot_dict[parent] = final_inv_rot

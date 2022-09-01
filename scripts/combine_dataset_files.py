@@ -1,11 +1,13 @@
+import os
 import numpy as np
+import project_config as pcfg
 
 TREE_NUM = 3
 TREE_PTS = 10
 ENV_NUM = 100
 PER_TREE = True
-GET_PATH = "/mnt/hdd/jan-malte/10Nodes_new_test/"
-PUT_PATH = "/mnt/hdd/jan-malte/10Nodes_new_test_by_tree/"
+GET_PATH = os.path.join(pcfg.PATH, "10Nodes_new_test")
+PUT_PATH = os.path.join(pcfg.PATH, "10Nodes_new_test_by_tree")
 TREE_START = 0
 
 def combine(tree_start=TREE_START, tree_num=TREE_NUM, env_num=ENV_NUM, get_path=GET_PATH, put_path=PUT_PATH, per_tree=PER_TREE, tree_pts=TREE_PTS):
