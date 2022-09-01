@@ -5,11 +5,12 @@ import numpy.linalg
 from xml.dom import minidom
 import os
 from scipy.spatial.transform import Rotation
+np.set_printoptions(suppress=True, precision=4)
 
 import yaml
 
 BATCH_SIZE = 1 # size of batches for random point generation. Lower values might speed up the process, but lead to variations in the final number of attraction points
-STIFFNESS_BASE = 11000 # factor used to calculate stiffness. 
+STIFFNESS_BASE = 11000 # factor used to calculate stiffness.
 SIMULATION_STEP_SIZE = 0.01 # internal value for isaacgym simulation
 
 def sphere(pt, a=1.0, b=1.0, c=1.0):
@@ -19,9 +20,14 @@ def sphere(pt, a=1.0, b=1.0, c=1.0):
 
 class TreeGenerator(object):
 
-    def __init__(self, att_pts_max, scaling, offset, da, dt, max_steps, step_width, max_tree_points, tip_radius, gui_on, att_env_shape_funct=sphere, tree_id=0, pipe_model_exponent=2, att_pts_min=None, x_strech=1, y_strech=1, z_strech=1, step_width_scaling=1, env_num=1):
-        """
-        Sets up the tree generator with all of its parameters.
+    def __init__(self, att_pts_max, scaling, offset, da, dt, max_steps, step_width,
+            max_tree_points, tip_radius, gui_on, att_env_shape_funct=sphere, tree_id=0,
+            pipe_model_exponent=2, att_pts_min=None, x_strech=1, y_strech=1, z_strech=1,
+            step_width_scaling=1, env_num=1):
+        """Sets up the tree generator with all of its parameters.
+
+        TODO(daniel): did this come from a paper?
+
         :param att_pts_max: maximum number of attraction points. for further info see initialize_att_pts
         :param scaling: defines tree crown size. for further info see initialize_att_pts
         :param offset: defines tree crown position. for further info see initialize_att_pts
@@ -79,7 +85,6 @@ class TreeGenerator(object):
                 if min_da > np.linalg.norm(point):
                     min_da = np.linalg.norm(point)
         return math.ceil(min_da)
-
 
     def initialize_closest_tp_list(self):
         """
@@ -163,10 +168,13 @@ class TreeGenerator(object):
         return sv_sets
 
     def generate_tree(self):
-        """
-        main function for generating tree points. Generates tree points, until either no attraction points remain, a
-        maximum number of point generation rounds is reached or ideally until the expected number of tree points was
-        generated.
+        """Main function for generating tree points.
+
+        Starting from a list with just the root tree point, generates tree points and
+        adds each 3D point to the list, until either no attraction points remain, a
+        maximum number of point generation rounds, or ideally until the expected number
+        of tree points was generated. NOTE(daniel): is this for _one_ tree?
+
         :return: list of tree points.
         """
         i = 0
@@ -176,12 +184,12 @@ class TreeGenerator(object):
             point_index = len(self.tree_points) # point index is assigned as highest index so far +1
             for key in sv_sets.keys():
                 new_tps.append(self.generate_new_point(key, sv_sets[key])) # generate new tree point. self.edges and self.tree_points is updated in this function
-                if len(self.tree_points) > self.max_tree_points: # stop immediately after the max number of tree points was reaches
+                if len(self.tree_points) > self.max_tree_points:
                     break
             self.update_closest_tp_list(new_tps, point_index) # update the closest tp list
             self.step_width = self.step_width * self.step_width_scaling # reduce step width
             i += 1
-        return self.tree_points # return tree points
+        return self.tree_points
 
     def generate_new_point(self, tp_index, sv_set):
         """
@@ -304,15 +312,14 @@ class TreeGenerator(object):
         for parent, child in self.edge_list:
             """
             removes all instances of string parents in the edge list. Translates them to index of parent string. String
-            parents can occur when temporarily adding "dirty edges" at time of edge list generation. 
+            parents can occur when temporarily adding "dirty edges" at time of edge list generation.
             """
             if isinstance(parent, str):
                 print("removed (%s, %s)"%(parent, child))
                 self.edge_list.remove((parent,child))
-                parent_idx = self.name_dict["links"].index(parent) 
+                parent_idx = self.name_dict["links"].index(parent)
                 self.edge_list.append((parent_idx,child))
                 print("added (%s, %s)"%(parent_idx, child))
-
 
     def generate_color_definitions(self, urdf, robot):
         """
@@ -443,7 +450,7 @@ class TreeGenerator(object):
 
             link_base = urdf.createElement('link')
             link_base.setAttribute('name', 'link%s_tip'%(tree_node))
-            
+
             visual = urdf.createElement('visual')
             self.add_origin(urdf, visual, [0,0,0], [0,0,0])
             geometry = urdf.createElement('geometry')
@@ -470,7 +477,7 @@ class TreeGenerator(object):
 
             robot.appendChild(link_base)
 
-            self.name_dict["links"].append('link%s_tip'%(tree_node)) 
+            self.name_dict["links"].append('link%s_tip'%(tree_node))
 
             incoming_edge_name = 'link_%s_to_%s'%(parent,tree_node)
             if incoming_edge_name in self.name_dict["links"]:
@@ -492,7 +499,7 @@ class TreeGenerator(object):
             link_base = urdf.createElement('link')
             link_base.setAttribute('name', 'link%s_base'%(tree_node))
             self.add_inertial(urdf, link_base)
-            robot.appendChild(link_base) 
+            robot.appendChild(link_base)
 
         for child in children:
             jointx = urdf.createElement('joint')
@@ -745,10 +752,13 @@ class TreeGenerator(object):
                 edge_tuples.append((parent, child))
         return edge_tuples
 
-    # has to be executed after the urdf was created
     def generate_yaml(self):
-        """
-        generates the yaml file for the generated tree. Has to be executed after the urdf was created
+        """Generates the yaml file for the generated tree.
+
+        Has to be executed after the urdf was created, e.g. in code:
+            tg.generate_urdf()
+            tg.generate_yaml()
+
         :returns path: path to the yaml file
         :returns stiffness list: list of stiffness values for all joints
         :returns damping list: list of damping values for all joints
@@ -820,7 +830,7 @@ class TreeGenerator(object):
             stiffness = STIFFNESS_BASE * stiffness_factor
             stiffness_list.append(stiffness)
 
-        damping_list = [25] * (len(self.name_dict["joints"])) 
+        damping_list = [25] * (len(self.name_dict["joints"]))
         file_object["tree"]["dof_props"]["stiffness"] = stiffness_list #[30] * (len(self.name_dict["joints"])) # -len(self.tree_points)
         file_object["tree"]["dof_props"]["damping"] = damping_list # -len(self.tree_points)
         file_object["tree"]["dof_props"]["effort"] = [87] * (len(self.name_dict["joints"])) # -len(self.tree_points)
@@ -829,7 +839,6 @@ class TreeGenerator(object):
             yaml.dump(file_object, f)
 
         return os.path.abspath("tree%s.yaml"%self.tree_id), stiffness_list, damping_list
-
 
 
 #fig = plt.figure()

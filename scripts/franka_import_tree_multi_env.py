@@ -24,17 +24,21 @@ PATH = os.path.join(pcfg.PATH, '10Nodes_new_test')
 
 def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list,
         damping_list, tree_num, tree_pts, path=PATH, num_iteration=10000):
-    """TODO(daniel)"""
+    """Runs and simulates the env(s).
+
+    TODO(daniel) need to understand this better.
+
+    Looks like it makes the k (parallel) gym envs with GymScene, k=gym._n_envs.
+
+    Also the policy seems to consist of winds lightly adjusting the trees?
+    """
     global no_contact, force, loc_tree, random_index, contact_transform, not_saved
     with open(yaml_path, "r") as f:
         cfg = yaml.load(f, Loader=yaml.Loader)
 
     scene = GymScene(cfg['scene'])
-
     tree = vt.GymVarTree(cfg['tree'], urdf_path, name_dict, scene, actuation_mode='joints')
-
     tree_name = 'tree'
-
     current_iteration = 0
     force_magnitude = 10
     push_toggle = True
@@ -65,7 +69,7 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list,
             draw_transforms(scene, [env_idx], transforms)
         draw_contacts(scene, scene.env_idxs)
 
-
+    # Make these for each env, defaulting to no contact and not saved as True.
     no_contact = [True] * scene._n_envs
     not_saved = [True] * scene._n_envs
     force = np_to_vec3([0, 0, 0])
@@ -177,7 +181,8 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list,
     save(PATH + '[%s]X_coeff_stiff_damp_tree%s'%(tree_pts,tree_num), coeff_stiff_damp)
     save(PATH + '[%s]X_edge_def_tree%s'%(tree_pts,tree_num), edge_def)
 
-    def policy(scene, env_idx, t_step, t_sim): #TODO: Fix issue where this saves init and final vetor identically
+    #TODO: Fix issue where this saves init and final vetor identically
+    def policy(scene, env_idx, t_step, t_sim):
         global rand_idxs, force_vecs, current_pos, last_timestamp, push_switch, done, push_num, last_pos, no_contact, force, loc_tree, random_index, contact_transform, force_vecs, rand_idxs, vertex_init_pos_list, vertex_final_pos_list, force_applied_list, vertex_init_pos, vertex_final_pos, force_applied, not_saved
         # #get pose
         # tree_tf3 = tree.get_link_transform(0, tree_name, name_dict["links"][2])
@@ -195,7 +200,6 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list,
                 push_switch[env_idx] = not push_switch[env_idx]
                 last_timestamp[env_idx] = sec_counter
             last_pos[env_idx] = current_pos[env_idx]
-
 
         if push_switch[env_idx]:#ten_sec_interval > 5:
 
@@ -245,16 +249,13 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list,
                 return True
                 #sys.exit()
         else:
-
             ### INITIALIZE CONTACT PROTOCOL ###
-            if no_contact[env_idx] == True:
-
+            # NOTE(daniel): I'm confused, it starts with no_contact=True then we immediately make it
+            # false? But where is the 'contact' happening at all? Or is this needed to make force_vecs?
+            if no_contact[env_idx]:
                 vertex_init_pos[env_idx] = get_link_poses(env_idx)
-                #print("vertex_init: %s"%datetime.datetime.now())
                 no_contact[env_idx] = False
 
-                #for idx in range(0, scene._n_envs):
-                #force random
                 while True:
                     fx = np.random.randint(-force_magnitude,force_magnitude)
                     fy = np.random.randint(-force_magnitude,force_magnitude)
@@ -262,30 +263,36 @@ def import_tree(name_dict, urdf_path, yaml_path, edge_def, stiffness_list,
                     if abs(fx) + abs(fy) + abs(fz) != 0:
                         break
 
-                force = np_to_vec3([fx, fy, fz])
+                # NOTE(daniel): we can change the amount for force but as is, it will only
+                # affect one of the tree joints (so it looks unrealistic if too much force).
+                #force = np_to_vec3([fx, fy, fz])
+                force = np_to_vec3([10, 10, 10])
                 force_vecs[env_idx] = force
-                #force = np_to_vec3([-10,-10,0])
 
                 #location random
                 random_index = np.random.randint(0, len(legal_push_indices)) #roll on the list of legal push indices
                 random_index = legal_push_indices[random_index] # extract the real random push index
                 rand_idxs[env_idx] = random_index
-
                 force_applied[env_idx] = set_force([fx,fy,fz], rand_idxs[env_idx])
 
                 #loc_tree = tree_location_list[rand_idxs[env_idx]].p
                 contact_transform = tree_location_list[rand_idxs[env_idx]]
                 contact_name = tree.link_names[rand_idxs[env_idx]]
-                #print(tree.link_names[random_index])
 
-                print(f"===== making contact {contact_name} with F {force} ========")
+                print(f"===== In env: {env_idx}, making contact {contact_name} with force: {force} ========")
 
-            #print(rand_idxs)
             #contact_draw(scene, env_idx, contact_transform)
             ### APPLY RANDOM-FORCE ###
-            tree.apply_force(env_idx, tree_name, tree.link_names[rand_idxs[env_idx]], force_vecs[env_idx], tree_location_list[rand_idxs[env_idx]].p)
+            tree.apply_force(
+                env_idx=env_idx,
+                name=tree_name,
+                rb_name=tree.link_names[rand_idxs[env_idx]],
+                force=force_vecs[env_idx],
+                loc=tree_location_list[rand_idxs[env_idx]].p
+            )
         return False
 
+    # Need to do this before we can see stuff running in the GUI.
     scene.run(policy=policy)
 
     # clean up to allow multiple runs
