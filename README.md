@@ -1,4 +1,11 @@
+# Daniel Seita branch
+
+(A personal branch for my own development.)
+
+<hr.
+
 # isaacgym-utils
+
 This repo contains wrappers and utilities for `isaacgym`
 
 Supported version of Isaac Gym: 1.0rc2
