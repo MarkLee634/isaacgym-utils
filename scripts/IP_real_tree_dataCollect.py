@@ -101,7 +101,6 @@ class Real2SimEvaluator(object):
         #get initial position
         print(f" data shape {data.shape}")
         init_pos = data[0,0][0:3]
-        print(f" init_pos {init_pos} ")
 
         #offset the rest of the data from initial position
         for i in range(data.shape[0]): #num pushes
@@ -116,6 +115,8 @@ class Real2SimEvaluator(object):
                 # print(f" data[i,j] {data[i,j][0:3]} \n init_pos {init_pos}")
                 data[i,j] = np.array(data[i,j][0:3]) - np.array(init_pos)
         
+        new_init_pos = data[0][0:3]
+        print(f" init_pos before offset: {init_pos}, after offset: {new_init_pos} ")
 
         return data
 
@@ -127,7 +128,7 @@ class Real2SimEvaluator(object):
         #get initial position
         print(f" data shape {data.shape}")
         init_pos = data[0,0,0:3]
-        print(f" init_pos {init_pos} ")
+        # print(f" init_pos {init_pos} ")
 
         data_clean = np.zeros((data.shape[0], data.shape[1], 3))
 
@@ -138,6 +139,8 @@ class Real2SimEvaluator(object):
                 data_clean[i,j,0:3] = np.array(data[i,j,0:3]) - np.array(init_pos)
                 # print(f" after offset {data_clean[i,j,0:3]}")
         
+        new_init_pos = data_clean[0,0][0:3]
+        print(f" init_pos before offset: {init_pos}, after offset: {new_init_pos} ")
 
         return data_clean
 
@@ -274,6 +277,8 @@ class Real2SimEvaluator(object):
 
         plt.show()
 
+        return line_3D_list
+
         
 
     def plot_real_tree_measurements(self, X,F,Y, edge_def):
@@ -356,7 +361,7 @@ class Real2SimEvaluator(object):
 
         
         scatter2 = ax.scatter(initx_array[0], initx_array[1],initx_array[2], c='r', s = 50)
-        print(f" size {initx_array.shape} {initx_array}")
+        # print(f" size {initx_array.shape} {initx_array}")
 
         # plt.show()
 
@@ -381,6 +386,41 @@ class Real2SimEvaluator(object):
         ax.add_collection(x0_lc)
 
         plt.show()
+
+        return line_3D_list
+
+    def plot_two_trees(self, real_link_plot, sim_link_plot):
+        '''
+        plot two trees over one another to visualize correct transformation
+        '''
+        # plotting
+        fig = plt.figure()
+        
+        # syntax for 3-D projection
+        ax = plt.axes(projection ='3d')
+
+        plt.xlabel("x (m)")
+        plt.ylabel("y (m)")
+        # plt.zlabel("z (m)")
+
+        ax.set_title('Sim, Real Tree Alignment')
+
+        real_lc = Line3DCollection(real_link_plot, colors=[1,0,0,1], linewidths=1)
+        real_links = ax.add_collection(real_lc)
+        real_links.set_label('real')
+        ax.legend()
+
+        sim_lc = Line3DCollection(sim_link_plot, colors=[0,1,0,1], linewidths=1)
+        sim_links = ax.add_collection(sim_lc)
+        sim_links.set_label('sim')
+        ax.legend()
+
+        ax.set_xlim3d(-1,1)
+        ax.set_ylim3d(-1,1)
+        ax.set_zlim3d(0,0.6)
+        plt.show()
+
+
 
     def convert_onehot_to_array(self, F):
         '''
