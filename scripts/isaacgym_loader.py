@@ -26,18 +26,6 @@ DEFAULT_PATH = "/home/mark/github/isaacgym-utils/scripts/dataset/"
 SAVE_PATH = "/home/mark/github/isaacgym-utils/scripts/IP_dataset/"
 
 
-name_dict =   {'joints': ['joint0_x_to_1', 'joint0_y_to_1', 'joint0_z_to_1', 'joint1_x_to_3', 'joint1_y_to_3', 'joint1_z_to_3', 'joint1_x_to_4', 'joint1_y_to_4', 'joint1_z_to_4', 'joint3_x_to_6', 'joint3_y_to_6', 'joint3_z_to_6', 'joint3_x_to_7', 'joint3_y_to_7', 'joint3_z_to_7', 'joint4_x_to_5', 'joint4_y_to_5', 'joint4_z_to_5', 'joint6_x_to_9', 'joint6_y_to_9', 'joint6_z_to_9', 'joint7_x_to_8', 'joint7_y_to_8', 'joint7_z_to_8', 'joint7_x_to_2', 'joint7_y_to_2', 'joint7_z_to_2'], 'links': ['base_link', 'link_0_to_1', 'link_1_to_3', 'link_1_to_4', 'link2_tip', 'link_3_to_6', 'link_3_to_7', 'link_4_to_5', 'link5_tip', 'link_6_to_9', 'link_7_to_8', 'link_7_to_2', 'link8_tip', 'link9_tip']} 
-edge_def = [(0, 1), (1, 2), (1, 3), (2, 5), (2, 6), (3, 7), (7, 8), (5, 9), (6, 10), (6, 11), (10, 12), (9, 13), (11, 4)] 
-
-
-
-NUM_JOINTS = len(name_dict['joints'])
-NUM_LINKS = len(name_dict['links'])
-
-damping_list = np.array([25]*NUM_JOINTS) 
-stiffness_list = np.array([50]*NUM_JOINTS) 
-stiffness_increment = 10
-
 num_iteration = 0 # hard coded to be Equal to NUM ENV * num push
 
 F_push_min = 1
@@ -45,13 +33,20 @@ F_push_max = 100
 F_push_array_default = (np.linspace(F_push_min, F_push_max, 100)).astype(int)
 
 class IG_loader(object):
-    def __init__(self, path=DEFAULT_PATH, save_path = SAVE_PATH, stiffness_list=None, stiffness_increment = 10, F_push_array=F_push_array_default):
+    def __init__(self, path=DEFAULT_PATH, save_path = SAVE_PATH, stiffness_list=None, stiffness_increment = 10,  name_dict = None, edge_def = None, F_push_array=F_push_array_default, num_iter = 0, tree_num = 0):
 
         global num_iteration
+
+
+        self.NUM_JOINTS = len(name_dict['joints'])
+        self.NUM_LINKS = len(name_dict['links'])
+        self.name_dict = name_dict
+        self.edge_def = edge_def
 
         self.urdf_path = path + '[10]tree0.urdf'
         self.yaml_path = path + '[10]tree0.yaml'
         self.save_path = save_path
+        self.tree_num = tree_num
 
   
         #load yaml file with config data about IG param and tree param
@@ -68,7 +63,7 @@ class IG_loader(object):
             self.cfg['tree']['dof_props']['stiffness'] = stiffness_list
 
         #HARD CODE DAMPING VALUE FOR FASTER DATA COLLECTION
-        self.cfg['tree']['dof_props']['damping'] = 5 * np.ones(NUM_JOINTS)
+        self.cfg['tree']['dof_props']['damping'] = 5 * np.ones(self.NUM_JOINTS)
 
         
         #create GymVarTree object for reference even though this is created with varying K assets in the setup_inc_K function
@@ -94,7 +89,7 @@ class IG_loader(object):
         #create a F_push list to apply on each env
         self.NUM_ENVS = self.cfg['scene']['n_envs']
         self.NUM_PUSHES = len(F_push_array)
-        num_iteration = self.NUM_ENVS * self.NUM_PUSHES
+        num_iteration = num_iter
 
 
         self.F_push_array = F_push_array
@@ -104,7 +99,7 @@ class IG_loader(object):
 
 
         self.policy_loop_counter = 0   
-        self.tree.num_links = NUM_LINKS
+        self.tree.num_links = self.NUM_LINKS
 
         self.push_num = 0
         self.stiffness_value = self.cfg['tree']['dof_props']['stiffness'][0] 
@@ -133,12 +128,11 @@ class IG_loader(object):
                 self.legal_push_indices.append(idx)
             idx += 1
 
-
+        print(f" self.edge_def : {self.edge_def}")
         self.tree_link_without_duplicates, self.tree_location_no_duplicate_list = self.get_link_names_without_duplicates()
         self.NUM_LINKS_WITHOUT_DUPLICATES = len(self.tree_link_without_duplicates)
 
-        print(f" NUM_LINKS : {NUM_LINKS}, NUM_LINKS_WITHOUT_DUPLICATES: {self.NUM_LINKS_WITHOUT_DUPLICATES}, NUM_JOINTS : {NUM_JOINTS}")
-
+        print(f" NUM_LINKS : {self.NUM_LINKS}, NUM_LINKS_WITHOUT_DUPLICATES: {self.NUM_LINKS_WITHOUT_DUPLICATES}, NUM_JOINTS : {self.NUM_JOINTS}")
 
         self.tree.num_links = self.NUM_LINKS_WITHOUT_DUPLICATES
 
@@ -170,7 +164,7 @@ class IG_loader(object):
         self.cfg['tree']['dof_props']['stiffness'] = self.stiffness_list + K_incremeter
         # print(f" cfg: {self.cfg['tree']['dof_props']['stiffness']}  ")
 
-        self.tree = vt.GymVarTree(self.cfg['tree'], self.urdf_path, name_dict, self.scene, actuation_mode='joints')
+        self.tree = vt.GymVarTree(self.cfg['tree'], self.urdf_path, self.name_dict, self.scene, actuation_mode='joints')
         self.tree_name = 'tree'
 
         tree_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, 0))
@@ -183,7 +177,7 @@ class IG_loader(object):
         temp_cfg['tree']['dof_props']['stiffness'] = np.asarray(self.cfg['tree']['dof_props']['stiffness'])  * K_multiplier
         # print(f" === temp_cfg['tree']['dof_props']['stiffness'] = {temp_cfg['tree']['dof_props']['stiffness']} ===")
 
-        self.tree = vt.GymVarTree(temp_cfg['tree'], self.urdf_path, name_dict, self.scene, actuation_mode='joints')
+        self.tree = vt.GymVarTree(temp_cfg['tree'], self.urdf_path, self.name_dict, self.scene, actuation_mode='joints')
         self.tree_name = 'tree'
 
         tree_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, 0))
@@ -209,7 +203,7 @@ class IG_loader(object):
         tree_link_without_duplicates = []
         tree_location_no_duplicate_list = []
         
-        for link_name in name_dict["links"]:
+        for link_name in self.name_dict["links"]:
             
             #find parent name from link name (link_1_to_3, link_1_to_4 -> link_1)
             parent_name = link_name.split("to_")[0]
@@ -299,32 +293,157 @@ class IG_loader(object):
 
         for env_idx in scene.env_idxs:
             transforms = []
-            for link_name in name_dict["links"]:
+            for link_name in self.name_dict["links"]:
                 transforms.append(self.tree.get_ee_transform_MARK(env_idx, self.tree_name, link_name))
             
 
             draw_transforms(scene, [env_idx], transforms)
 
 
-    def save_data(self,env_idx, vertex_init_pos_list_arg, vertex_final_pos_list_arg, force_applied_list_arg):
+    def save_data(self,env_idx, vertex_init_pos_list_arg, vertex_final_pos_list_arg, force_applied_list_arg, edge_def_arg):
         print(f" ======================== saving data  ========================  ")
         # K = self.get_K_stiffness(env_idx)[0] 
         # print(f" force_applied_list_arg {force_applied_list_arg} ")
         # print(f" vertex_final_pos_list_arg {vertex_final_pos_list_arg} ")
 
-        NUM_LINKS = 14
-        save(self.save_path + '[%s]X_force_applied_treeK_env%s'%(NUM_LINKS,   env_idx), force_applied_list_arg )
-        save(self.save_path + '[%s]Y_vertex_final_pos_treeK_env%s'%(NUM_LINKS, env_idx), vertex_final_pos_list_arg )
-        save(self.save_path + '[%s]X_vertex_init_pos_treeK_env%s'%(NUM_LINKS,  env_idx), vertex_init_pos_list_arg )
+        NUM_LINKS =  self.NUM_LINKS_WITHOUT_DUPLICATES 
+ 
+        save(self.save_path + '[%s]X_force_applied_tree%s_env%s'   %(NUM_LINKS, self.tree_num, env_idx), force_applied_list_arg )
+        save(self.save_path + '[%s]Y_vertex_final_pos_tree%s_env%s'%(NUM_LINKS, self.tree_num, env_idx), vertex_final_pos_list_arg )
+        save(self.save_path + '[%s]X_vertex_init_pos_tree%s_env%s' %(NUM_LINKS, self.tree_num, env_idx), vertex_init_pos_list_arg )
+        save(self.save_path + '[%s]X_edge_def_tree%s'              %(NUM_LINKS, self.tree_num), edge_def_arg )
         
 
     def run_policy(self):
         self.scene.run(policy=self.policy)
 
     def run_policy_do_nothing(self):
-        self.scene.run(policy=tree_policy.policy_do_nothing)
+        self.scene.run(policy=tree_policy.Policy_Do_Nothing(self.tree, self.tree_name) )
 
-    
+    def run_policy_random_pushes(self):
+        self.scene.run(policy=self.policy_random_pushes)
+
+     #================================================================================================
+    def policy_random_pushes(self, scene, env_idx, t_step, t_sim):
+        # #get pose 
+        # tree_tf3 = tree.get_link_transform(0, tree_name, name_dict["links"][2])
+
+
+        #counter
+        sec_interval = t_sim%1
+        sec_counter = int(t_sim)
+
+        ### DETECT STABILIZATION ###
+        if sec_interval == 0 or sec_interval == 0.5:
+            self.current_pos[env_idx] = self.get_link_poses(env_idx)
+            if np.sum(np.linalg.norm(np.round(self.last_pos[env_idx][:3] - self.current_pos[env_idx][:3], 5))) == 0 or sec_counter - self.last_timestamp[env_idx] > 30: #tree has stabilized at original position
+                self.push_switch[env_idx] = not self.push_switch[env_idx]
+                self.last_timestamp[env_idx] = sec_counter
+            self.last_pos[env_idx] = self.current_pos[env_idx]
+
+
+        if self.push_switch[env_idx]:#ten_sec_interval > 5:
+
+            # print(f" *** For env {env_idx}, env push: {self.F_push_counter_env[env_idx]}, global push: {self.push_num} /  {num_iteration} , self.not_saved: {self.not_saved[env_idx] }  ")
+
+            #let each env only push through F_push_max_index times
+            if self.F_push_counter_env[env_idx] <= self.F_push_max_index:
+
+                ### BREAK CONTACT PROTOCOL (execute when push_switch[env_idx] turns false) ###
+                if self.no_contact[env_idx] == False:
+                    self.vertex_final_pos[env_idx] = self.get_link_poses_without_duplicates(env_idx)
+                    #print("vertex_final: %s"%datetime.datetime.now())
+                    print(f" i: {self.push_num}/{num_iteration} ")
+                    print(f"===== breaking contact ========")
+                    #print(vertex_init_pos[env_idx][:3]-vertex_final_pos[env_idx][:3])
+                    #print("env%s saves"%env_idx)
+                    if env_idx in self.vertex_init_pos_dict.keys():
+                        self.vertex_init_pos_dict[env_idx].append(self.vertex_init_pos[env_idx])
+                    else:   
+                        self.vertex_init_pos_dict[env_idx] = [self.vertex_init_pos[env_idx]]
+                    
+                    if env_idx in self.vertex_final_pos_dict.keys():
+                        self.vertex_final_pos_dict[env_idx].append(self.vertex_final_pos[env_idx])
+                    else:
+                        self.vertex_final_pos_dict[env_idx] = [self.vertex_final_pos[env_idx]]
+
+                    if env_idx in self.force_applied_dict.keys():
+                        self.force_applied_dict[env_idx].append(self.force_applied[env_idx])
+                    else:
+                        self.force_applied_dict[env_idx] = [self.force_applied[env_idx]]
+                    self.push_num += 1 #globally counted
+ 
+                    
+                    self.no_contact[env_idx] = True
+                    self.force = np_to_vec3([0, 0, 0])
+
+                    ### APPLY ZERO-FORCE ###
+                self.tree.apply_force(env_idx, self.tree_name, self.name_dict["links"][2], self.force, self.tree_location_list[2].p)
+
+
+            #save after all push has been done for all env
+            if self.push_num >= num_iteration and self.not_saved[env_idx]:
+                #print(np.shape(vertex_init_pos_list))
+
+                self.save_data(env_idx, self.vertex_init_pos_dict[env_idx], self.vertex_final_pos_dict[env_idx], self.force_applied_dict[env_idx], self.edge_def)
+                self.not_saved[env_idx] = False
+                self.done[env_idx] = True
+            if all(self.done):
+                print(f" ------ policy all done --------- ")
+                return True
+
+        else:
+
+            ### INITIALIZE CONTACT PROTOCOL ###
+            if self.no_contact[env_idx] == True:
+
+                #let each env only push through F_push_max_index times
+                if self.F_push_counter_env[env_idx] < self.F_push_max_index:
+
+                    self.vertex_init_pos[env_idx] = self.get_link_poses_without_duplicates(env_idx)
+                    #print("vertex_init: %s"%datetime.datetime.now())
+                    self.no_contact[env_idx] = False
+
+                    sx = np.random.randint(0,2)
+                    fx = np.random.randint(10,30)
+                    if sx == 0:
+                        fx = -fx
+
+                    sy = np.random.randint(0,2)
+                    fy = np.random.randint(10,30)
+                    if sy == 0:
+                        fy = -fy
+
+                    fz = 0
+
+                   
+                    self.force = np_to_vec3([fx, fy, fz])
+                    self.force_vecs[env_idx] = self.force
+
+                    #randomly select a push index
+                    random_index = np.random.randint(0, self.NUM_LINKS_WITHOUT_DUPLICATES) #roll on the list of legal push indices
+                    self.rand_idxs[env_idx] = random_index
+
+                    self.force_applied[env_idx] = self.set_force( vec3_to_np(self.force), self.rand_idxs[env_idx])
+                    
+
+                    self.contact_transform = self.tree_location_no_duplicate_list[self.rand_idxs[env_idx]]
+                    contact_name = self.tree_link_without_duplicates[self.rand_idxs[env_idx]]
+                    #print(tree.link_names[random_index])
+
+                    print(f"===== env_idx {env_idx}, push count: {self.F_push_counter_env[env_idx]}, making contact {contact_name} with F: {self.force} at node: { self.rand_idxs[env_idx] } ========")
+
+                    
+                    self.F_push_counter_env[env_idx] += 1 #increment the push counter for the specific env
+
+                    #print(self.rand_idxs)
+                    #contact_draw(scene, env_idx, contact_transform)
+            
+            ### APPLY FORCE  outside constantly ###
+            self.tree.apply_force(env_idx, self.tree_name, self.tree_link_without_duplicates[self.rand_idxs[env_idx]], self.force_vecs[env_idx], self.tree_location_no_duplicate_list[self.rand_idxs[env_idx]].p)
+        return False
+
+
     #================================================================================================
     def policy(self, scene, env_idx, t_step, t_sim):
 
@@ -381,14 +500,14 @@ class IG_loader(object):
                     self.force = np_to_vec3([0, 0, 0])
 
                     ### APPLY ZERO-FORCE ###
-                self.tree.apply_force(env_idx, self.tree_name, name_dict["links"][2], self.force, self.tree_location_list[2].p)
+                self.tree.apply_force(env_idx, self.tree_name, self.name_dict["links"][2], self.force, self.tree_location_list[2].p)
 
 
             #save after all push has been done for all env
             if self.push_num >= num_iteration and self.not_saved[env_idx]:
                 #print(np.shape(vertex_init_pos_list))
 
-                self.save_data(env_idx, self.vertex_init_pos_dict[env_idx], self.vertex_final_pos_dict[env_idx], self.force_applied_dict[env_idx])
+                self.save_data(env_idx, self.vertex_init_pos_dict[env_idx], self.vertex_final_pos_dict[env_idx], self.force_applied_dict[env_idx], self.edge_def)
                 self.not_saved[env_idx] = False
                 self.done[env_idx] = True
             if all(self.done):

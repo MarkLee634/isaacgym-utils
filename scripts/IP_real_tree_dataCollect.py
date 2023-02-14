@@ -29,7 +29,7 @@ output: visualization of the difference between real and sim
 
 path = '/home/mark/data/IsaacGym/dataset_mark/real_URDF/'
 sim_path = '/home/mark/data/IsaacGym/dataset_mark/real_URDF/real2sim_data/'
-save_path = '/home/mark/data/IsaacGym/dataset_mark/real_URDF/real2sim_data/K_search_01/'
+save_path = '/home/mark/data/IsaacGym/dataset_mark/real_URDF/real2sim_data/sim_tree_validation/'
 K_search_path = '/home/mark/data/IsaacGym/dataset_mark/real_URDF/real2sim_data/K_search/'
 
 TREE_POINTS = 10
@@ -153,9 +153,9 @@ class Real2SimEvaluator(object):
         F = []
         Y = []
 
-        X_path = path_to_data + '[14]X_vertex_init_pos_treeK_env0.npy'
-        F_path = path_to_data + '[14]X_force_applied_treeK_env0.npy'
-        Y_path = path_to_data + '[14]Y_vertex_final_pos_treeK_env0.npy'
+        X_path = path_to_data + '[14]X_vertex_init_pos_treeK_env5.npy'
+        F_path = path_to_data + '[14]X_force_applied_treeK_env5.npy'
+        Y_path = path_to_data + '[14]Y_vertex_final_pos_treeK_env5.npy'
         edge_path = path_to_data + 'X_edge_def1.npy'
 
         X = np.load(X_path, allow_pickle=True)
@@ -175,8 +175,9 @@ class Real2SimEvaluator(object):
 
         print(f" ==================== FXY {F.shape}, {X.shape, Y.shape} ==================== ")
 
-        
-        data1 = np.zeros((4, self.NUM_PUSHES_SIM * self.NUM_NODES_SIM)) #4 bc xyz,id
+        NUM_PUSHES_SIM = X.shape[0]
+        NUM_NODES_SIM = X.shape[2]
+        data1 = np.zeros((4, NUM_PUSHES_SIM * NUM_NODES_SIM)) #4 bc xyz,id
         # print(f"size of data1 is {data1.shape} b/c num push, num node: {self.NUM_PUSHES_SIM, self.NUM_NODES_SIM} ")
 
         nodes_position_list = []
@@ -185,7 +186,7 @@ class Real2SimEvaluator(object):
         
         for pushes in Y:
 
-            for i in range (self.NUM_NODES_SIM ):
+            for i in range (NUM_NODES_SIM ):
 
             
                 
@@ -231,7 +232,7 @@ class Real2SimEvaluator(object):
 
         ax.set_title('Sim Tree Displacement')
 
-        for i in range (self.NUM_NODES_SIM):
+        for i in range (NUM_NODES_SIM):
             ax.text(x[i], y[i], z[i], c[i].astype(int), color='black')
 
 
@@ -241,17 +242,20 @@ class Real2SimEvaluator(object):
         # ======draw red circles of nodes ============================================================
 
 
-        initx_array = np.zeros((3,self.NUM_NODES_SIM))
+        initx_array = np.zeros((3,NUM_NODES_SIM))
 
         valid_push_idx = 0
 
-        for n in range(self.NUM_NODES_SIM):
+        for n in range(NUM_NODES_SIM):
             initx_array[0,n] = X[valid_push_idx][0][n]
             initx_array[1,n] = X[valid_push_idx][1][n]
             initx_array[2,n] = X[valid_push_idx][2][n]
         
         scatter2 = ax.scatter(initx_array[0], initx_array[1],initx_array[2], c='r', s = 50)
         # print(f" size {initx_array.shape} {initx_array}")
+        ax.set_xlim3d(-0.5,0.5)
+        ax.set_ylim3d(-0.5,0.5)
+        ax.set_zlim3d(0,0.6)
 
         # plt.show()
 
@@ -263,17 +267,17 @@ class Real2SimEvaluator(object):
 
         line_3D_list = []
 
-        for idx,edge in enumerate(edge_def):
-            edge_a = edge[0]
-            edge_b = edge[1]
-            print(f"idx {idx} with {edge_a,edge_b}")
+        # for idx,edge in enumerate(edge_def):
+        #     edge_a = edge[0]
+        #     edge_b = edge[1]
+        #     print(f"idx {idx} with {edge_a,edge_b}")
 
-            line_3D_list.append([ initx_array[:,edge_a] , initx_array[:,edge_b]])
+        #     line_3D_list.append([ initx_array[:,edge_a] , initx_array[:,edge_b]])
 
 
-        x0_lc = Line3DCollection(line_3D_list, colors=[1,0,0,1], linewidths=1)
+        # x0_lc = Line3DCollection(line_3D_list, colors=[1,0,0,1], linewidths=1)
 
-        ax.add_collection(x0_lc)
+        # ax.add_collection(x0_lc)
 
         plt.show()
 
@@ -314,10 +318,10 @@ class Real2SimEvaluator(object):
         c = data1[3,:]
 
         #down sample
-        x = data1[0,::10]      
-        y = data1[1,::10] 
-        z = data1[2,::10] 
-        c = data1[3,::10]
+        x = data1[0,::1]      
+        y = data1[1,::1] 
+        z = data1[2,::1] 
+        c = data1[3,::1]
 
 
         # print(f"size of xyz is {x.shape, y.shape, z.shape}")
@@ -329,13 +333,17 @@ class Real2SimEvaluator(object):
         ax = plt.axes(projection ='3d')
     
 
-        scatter = ax.scatter(x, y, z, c = c, s=1)
+        scatter = ax.scatter(x, y, z, c = c, s=2)
         # produce a legend with the unique colors from the scatter
         legend1 = ax.legend(*scatter.legend_elements(),
                         loc="lower left", title="branch")
 
         plt.xlabel("x (m)")
         plt.ylabel("y (m)")
+        ax.set_xlim3d(-0.4,0.4)
+        ax.set_ylim3d(-0.4,0.4)
+        ax.set_zlim3d(0,0.6)
+
         # plt.zlabel("z (m)")
 
         ax.set_title('Real Tree Displacement ')
@@ -419,6 +427,7 @@ class Real2SimEvaluator(object):
         ax.set_ylim3d(-1,1)
         ax.set_zlim3d(0,0.6)
         plt.show()
+        
 
 
 
@@ -459,7 +468,7 @@ def main():
 
     Real2Sim = Real2SimEvaluator(path,sim_path,save_path)
     Real2Sim.plot_real_tree_measurements(Real2Sim.X_origin,Real2Sim.F,Real2Sim.Y_origin, Real2Sim.edge_def)
-    sys.exit()
+    # sys.exit()
 
     # ================ data collect =================
 
@@ -469,10 +478,10 @@ def main():
     print(f" F_push_array before downsample  {F_push_array.shape}")
 
     #down_sampled F for quicker data collection
-    F_push_array = F_push_array[::10,:]
+    F_push_array = F_push_array[::1,:] #[::10,:] 
     print(f" F_push_array after downsample {F_push_array.shape}")
 
-
+    
     #create 1D search space for K = C * f(radius). 
     stiffness_increment  = np.linspace(0.2, 4.0, Real2Sim.NUM_ENV) 
 

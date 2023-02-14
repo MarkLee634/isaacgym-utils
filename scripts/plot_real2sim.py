@@ -97,12 +97,14 @@ def main():
     Real2Sim = IP_dataCollect.Real2SimEvaluator(path,sim_path,save_path)
     real_link_plot = Real2Sim.plot_real_tree_measurements(Real2Sim.X_origin,Real2Sim.F,Real2Sim.Y_origin, Real2Sim.edge_def)
     
-    # sys.exit()
-    #plot Y sim in K search dataset
+    
 
     X_search, F_search, Y_search, edge_def_search = Real2Sim.load_data_from_path(K_search_path)
     sim_link_plot = Real2Sim.plot_sim_tree_measurements(X_search, F_search, Y_search, edge_def_search)
     print(f" shape Y  = {Y_search.shape}")
+
+    sys.exit()
+    #plot Y sim in K search dataset
 
     Real2Sim.plot_two_trees(real_link_plot, sim_link_plot)
     
